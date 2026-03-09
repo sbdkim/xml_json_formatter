@@ -22,7 +22,7 @@
     <text x="84" y="34" fill="#ffffff" font-size="24" text-anchor="middle" font-family="Verdana, sans-serif">No tracking</text>
   </g>
   <g transform="translate(310 475)">
-    <rect width="202" height="54" rx="27" fill="#f4a259" />
-    <text x="101" y="34" fill="#1d2328" font-size="24" text-anchor="middle" font-family="Verdana, sans-serif">GitHub Pages ready</text>
+    <rect width="278" height="54" rx="27" fill="#f4a259" />
+    <text x="139" y="34" fill="#1d2328" font-size="24" text-anchor="middle" font-family="Verdana, sans-serif">GitHub Pages ready</text>
   </g>
 </svg>
