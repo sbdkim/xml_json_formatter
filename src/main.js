@@ -1,73 +1,74 @@
 import './style.css';
 import { formatInput, getDownloadName, inferModeFromFile, samples } from './formatter.js';
 
-const STORAGE_KEY = 'format-foundry:last-mode';
+const MODE_STORAGE_KEY = 'format-foundry:last-mode';
+const DRAFT_STORAGE_PREFIX = 'format-foundry:draft:';
 
 const state = {
-  mode: localStorage.getItem(STORAGE_KEY) || 'json',
+  mode: localStorage.getItem(MODE_STORAGE_KEY) || 'json',
+  drafts: {
+    json: localStorage.getItem(`${DRAFT_STORAGE_PREFIX}json`) || '',
+    xml: localStorage.getItem(`${DRAFT_STORAGE_PREFIX}xml`) || '',
+  },
   output: '',
   lastTransform: 'formatted',
 };
 
 document.querySelector('#app').innerHTML = `
-  <div class="page-shell">
-    <header class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">Format Foundry</p>
-        <h1>JSON and XML cleanup without sending your data anywhere.</h1>
-        <p class="lede">
-          Format, minify, validate, import, and export structured text in a focused workspace
-          built for fast browser-based use. Everything runs locally in your browser.
-        </p>
-        <div class="hero-notes" aria-label="Trust highlights">
-          <span>No backend</span>
-          <span>No tracking</span>
-          <span>GitHub Pages ready</span>
-        </div>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <p class="brand-name">Format Foundry</p>
+        <p class="brand-note">Local JSON and XML cleanup with import, validation, and export.</p>
       </div>
-      <aside class="hero-card" aria-label="Quick guide">
-        <p class="hero-card-label">Keyboard shortcuts</p>
-        <ul class="shortcut-list">
-          <li><kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd><span>Format active input</span></li>
-          <li><kbd>Ctrl</kbd><span>+</span><kbd>Shift</kbd><span>+</span><kbd>M</kbd><span>Minify active input</span></li>
-          <li><kbd>Ctrl</kbd><span>+</span><kbd>Shift</kbd><span>+</span><kbd>C</kbd><span>Copy output</span></li>
-          <li><kbd>Ctrl</kbd><span>+</span><kbd>O</kbd><span>Import file</span></li>
-        </ul>
-      </aside>
-    </header>
 
-    <main class="workspace" aria-label="Formatter application">
-      <section class="control-panel">
+      <div class="topbar-controls">
         <div class="tabs" role="tablist" aria-label="Formatter mode">
           <button class="tab-button" type="button" role="tab" data-mode="json" id="tab-json">JSON</button>
           <button class="tab-button" type="button" role="tab" data-mode="xml" id="tab-xml">XML</button>
         </div>
+        <p class="trust-note" aria-label="Trust note">Local only <span aria-hidden="true">/</span> No upload</p>
+      </div>
+    </header>
 
-        <div class="action-row" aria-label="Formatter actions">
-          <button class="action-button action-button-strong" type="button" data-action="format">Format</button>
-          <button class="action-button action-button-strong" type="button" data-action="minify">Minify</button>
-          <button class="action-button" type="button" data-action="sample">Load sample</button>
-          <button class="action-button" type="button" data-action="import">Import file</button>
-          <button class="action-button" type="button" data-action="copy">Copy output</button>
+    <main class="workspace" aria-label="Formatter application">
+      <section class="toolbar" aria-label="Formatter actions">
+        <div class="toolbar-group" aria-label="Primary actions">
+          <button class="action-button action-button-primary" type="button" data-action="format">Format</button>
+          <button class="action-button action-button-primary" type="button" data-action="minify">Minify</button>
+        </div>
+
+        <div class="toolbar-group" aria-label="Input actions">
+          <button class="action-button" type="button" data-action="import">Import</button>
+          <button class="action-button" type="button" data-action="sample">Sample</button>
+          <button class="action-button" type="button" data-action="clear">Clear</button>
+        </div>
+
+        <div class="toolbar-group" aria-label="Output actions">
+          <button class="action-button" type="button" data-action="copy">Copy</button>
           <button class="action-button" type="button" data-action="download">Download</button>
-          <button class="action-button action-button-muted" type="button" data-action="clear">Clear</button>
+          <button class="action-button" type="button" data-action="reuse">Use result as input</button>
         </div>
       </section>
 
-      <section class="message-strip" aria-label="Application status">
-        <p class="status-message" id="statusMessage" aria-live="polite"></p>
-        <p class="error-message" id="errorMessage" aria-live="assertive"></p>
+      <section class="status-bar" id="statusBar" data-state="idle" aria-label="Application status">
+        <p class="status-message" id="statusMessage" aria-live="polite">Ready for JSON input.</p>
+        <p class="status-detail" id="errorMessage" aria-live="assertive">Shortcuts: Ctrl/Cmd + Enter formats. Ctrl/Cmd + Shift + M minifies.</p>
       </section>
 
       <section class="editor-grid">
-        <div class="editor-card editor-card-drop" id="dropZone">
-          <div class="editor-card-head">
+        <article class="editor-panel editor-panel-drop" id="dropZone">
+          <div class="panel-header">
             <div>
-              <p class="card-kicker">Input</p>
-              <h2>Paste or drop structured data</h2>
+              <h2>Input</h2>
+              <p class="panel-description">Paste text, type directly, or drop a file here.</p>
             </div>
-            <p class="card-note">Supports .json and .xml import. Drag a file anywhere onto this panel.</p>
+            <div class="panel-meta">
+              <span class="meta-chip" id="inputModeBadge">JSON</span>
+              <span class="meta-stat" id="inputStats">0 chars / 1 line</span>
+            </div>
           </div>
+
           <label class="sr-only" for="inputEditor">Input editor</label>
           <textarea
             id="inputEditor"
@@ -76,54 +77,26 @@ document.querySelector('#app').innerHTML = `
             autocomplete="off"
             autocapitalize="off"
           ></textarea>
-          <div class="drop-hint" id="dropHint" aria-hidden="true">Drop your file to import it into the active workspace.</div>
-        </div>
+          <div class="drop-hint" id="dropHint" aria-hidden="true">Drop a JSON or XML file to load it into this workspace.</div>
+        </article>
 
-        <div class="editor-card">
-          <div class="editor-card-head">
+        <article class="editor-panel">
+          <div class="panel-header">
             <div>
-              <p class="card-kicker">Output</p>
-              <h2>Validated result</h2>
+              <h2>Output</h2>
+              <p class="panel-description">Formatted or minified result. Copy it, download it, or reuse it.</p>
             </div>
-            <p class="card-note">Copy or download the result after formatting or minifying.</p>
+            <div class="panel-meta">
+              <span class="meta-chip meta-chip-muted">Read only</span>
+              <span class="meta-stat" id="outputStats">0 chars / 1 line</span>
+            </div>
           </div>
+
           <label class="sr-only" for="outputEditor">Output editor</label>
           <textarea id="outputEditor" class="editor editor-output" spellcheck="false" readonly></textarea>
-        </div>
-      </section>
-
-      <section class="support-grid" aria-label="Product details">
-        <article class="info-card">
-          <p class="card-kicker">Privacy</p>
-          <h3>All processing stays local.</h3>
-          <p>
-            Format Foundry never sends your data to a server. JSON and XML parsing happens entirely in
-            your browser session.
-          </p>
-        </article>
-        <article class="info-card">
-          <p class="card-kicker">Workflow</p>
-          <h3>Built for paste-heavy tasks.</h3>
-          <p>
-            Keep moving with keyboard shortcuts, drag-and-drop import, downloadable output, and crisp
-            error feedback when data is malformed.
-          </p>
-        </article>
-        <article class="info-card">
-          <p class="card-kicker">FAQ</p>
-          <h3>What does this support?</h3>
-          <p>
-            v1 supports JSON and XML formatting, minifying, sample loading, import/export, and GitHub
-            Pages-friendly static deployment.
-          </p>
         </article>
       </section>
     </main>
-
-    <footer class="site-footer">
-      <p>Format Foundry is a free static tool for personal and public use.</p>
-      <p>Deployable on GitHub Pages with no server required.</p>
-    </footer>
 
     <input class="sr-only" id="fileInput" type="file" accept=".json,.xml,text/json,text/xml,application/json,application/xml" />
   </div>
@@ -131,17 +104,75 @@ document.querySelector('#app').innerHTML = `
 
 const inputEditor = document.querySelector('#inputEditor');
 const outputEditor = document.querySelector('#outputEditor');
-const errorMessage = document.querySelector('#errorMessage');
+const statusBar = document.querySelector('#statusBar');
 const statusMessage = document.querySelector('#statusMessage');
+const errorMessage = document.querySelector('#errorMessage');
 const fileInput = document.querySelector('#fileInput');
 const dropZone = document.querySelector('#dropZone');
 const dropHint = document.querySelector('#dropHint');
+const inputModeBadge = document.querySelector('#inputModeBadge');
+const inputStats = document.querySelector('#inputStats');
+const outputStats = document.querySelector('#outputStats');
 const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
 const actionButtons = Array.from(document.querySelectorAll('.action-button'));
 
+function saveDraft(mode, value) {
+  state.drafts[mode] = value;
+  localStorage.setItem(`${DRAFT_STORAGE_PREFIX}${mode}`, value);
+}
+
+function getEditorStats(value) {
+  const lines = value.length ? value.split(/\r?\n/).length : 1;
+  const chars = value.length;
+  return `${chars} char${chars === 1 ? '' : 's'} / ${lines} line${lines === 1 ? '' : 's'}`;
+}
+
+function updateInputMeta() {
+  inputModeBadge.textContent = state.mode.toUpperCase();
+  inputStats.textContent = getEditorStats(inputEditor.value);
+}
+
+function updateOutputMeta() {
+  outputStats.textContent = getEditorStats(outputEditor.value);
+}
+
+function updatePlaceholders() {
+  inputEditor.placeholder = state.mode === 'json'
+    ? '{\n  "team": "foundry",\n  "ready": true\n}'
+    : '<project>\n  <team>foundry</team>\n  <ready>true</ready>\n</project>';
+}
+
+function setStatus(message, type = 'idle', detail = 'Shortcuts: Ctrl/Cmd + Enter formats. Ctrl/Cmd + Shift + M minifies.') {
+  statusBar.dataset.state = type;
+  statusMessage.textContent = message;
+  errorMessage.textContent = detail;
+}
+
+function clearMessages() {
+  setStatus(`Ready for ${state.mode.toUpperCase()} input.`);
+}
+
+function setOutput(value, transformLabel = state.lastTransform) {
+  state.output = value;
+  state.lastTransform = transformLabel;
+  outputEditor.value = value;
+  updateOutputMeta();
+  syncActionAvailability();
+}
+
+function syncActionAvailability() {
+  const hasOutput = state.output.trim().length > 0;
+  for (const button of actionButtons) {
+    if (['copy', 'download', 'reuse'].includes(button.dataset.action)) {
+      button.disabled = !hasOutput;
+    }
+  }
+}
+
 function setMode(mode, announce = true) {
+  saveDraft(state.mode, inputEditor.value);
   state.mode = mode;
-  localStorage.setItem(STORAGE_KEY, mode);
+  localStorage.setItem(MODE_STORAGE_KEY, mode);
 
   for (const button of tabButtons) {
     const isActive = button.dataset.mode === mode;
@@ -150,43 +181,13 @@ function setMode(mode, announce = true) {
     button.tabIndex = isActive ? 0 : -1;
   }
 
-  inputEditor.placeholder = mode === 'json'
-    ? 'Paste JSON like {"team":"foundry","ready":true}'
-    : 'Paste XML like <project><name>foundry</name></project>';
-  clearMessages();
+  inputEditor.value = state.drafts[mode] || '';
+  setOutput('', state.lastTransform);
+  updatePlaceholders();
+  updateInputMeta();
+
   if (announce) {
-    setStatus(`Ready for ${mode.toUpperCase()} input.`, false);
-  }
-}
-
-function clearMessages() {
-  errorMessage.textContent = '';
-  statusMessage.classList.remove('is-success');
-}
-
-function setStatus(message, success) {
-  statusMessage.textContent = message;
-  statusMessage.classList.toggle('is-success', Boolean(success));
-}
-
-function setError(message) {
-  errorMessage.textContent = message;
-  statusMessage.classList.remove('is-success');
-}
-
-function setOutput(value, transformLabel) {
-  state.output = value;
-  state.lastTransform = transformLabel;
-  outputEditor.value = value;
-  syncActionAvailability();
-}
-
-function syncActionAvailability() {
-  const hasOutput = state.output.trim().length > 0;
-  for (const button of actionButtons) {
-    if (button.dataset.action === 'copy' || button.dataset.action === 'download') {
-      button.disabled = !hasOutput;
-    }
+    clearMessages();
   }
 }
 
@@ -194,9 +195,9 @@ function requireInput() {
   if (inputEditor.value.trim()) {
     return true;
   }
+
   setOutput('', state.lastTransform);
-  setError(`Add some ${state.mode.toUpperCase()} first.`);
-  setStatus('Waiting for input.', false);
+  setStatus(`Add some ${state.mode.toUpperCase()} first.`, 'error', 'Paste content, load a sample, or import a file.');
   return false;
 }
 
@@ -206,30 +207,38 @@ function runTransform(action) {
   }
 
   try {
-    clearMessages();
     const transform = action === 'format' ? 'formatted' : 'minified';
     const result = formatInput(state.mode, inputEditor.value, transform);
     setOutput(result, transform);
-    setStatus(`${capitalize(transform)} ${state.mode.toUpperCase()} successfully.`, true);
+    setStatus(
+      `${capitalize(transform)} ${state.mode.toUpperCase()} successfully.`,
+      'success',
+      'Result is ready in the output panel.'
+    );
   } catch (error) {
     setOutput('', state.lastTransform);
-    setError(error instanceof Error ? error.message : `Unable to ${action} ${state.mode.toUpperCase()}.`);
-    setStatus('Fix the input and try again.', false);
+    setStatus(
+      `Could not ${action} ${state.mode.toUpperCase()}.`,
+      'error',
+      error instanceof Error ? error.message : `Unable to ${action} ${state.mode.toUpperCase()}.`
+    );
   }
 }
 
 function loadSample() {
   inputEditor.value = samples[state.mode];
+  saveDraft(state.mode, inputEditor.value);
   setOutput('', state.lastTransform);
-  clearMessages();
-  setStatus(`Loaded ${state.mode.toUpperCase()} sample data.`, true);
+  updateInputMeta();
+  setStatus(`Loaded ${state.mode.toUpperCase()} sample data.`, 'success', 'You can format it, minify it, or replace it with your own text.');
 }
 
 function clearWorkspace() {
   inputEditor.value = '';
+  saveDraft(state.mode, '');
   setOutput('', state.lastTransform);
+  updateInputMeta();
   clearMessages();
-  setStatus('Workspace cleared.', false);
 }
 
 async function copyOutput() {
@@ -245,7 +254,7 @@ async function copyOutput() {
     document.execCommand('copy');
   }
 
-  setStatus('Output copied to the clipboard.', true);
+  setStatus('Output copied.', 'success', 'The current result is now on your clipboard.');
 }
 
 function downloadOutput() {
@@ -262,7 +271,19 @@ function downloadOutput() {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  setStatus('Download started.', true);
+  setStatus('Download started.', 'success', `Saved as ${getDownloadName(state.mode, state.lastTransform)}.`);
+}
+
+function reuseOutputAsInput() {
+  if (!state.output.trim()) {
+    return;
+  }
+
+  inputEditor.value = state.output;
+  saveDraft(state.mode, inputEditor.value);
+  updateInputMeta();
+  setStatus('Output moved into input.', 'success', 'You can keep refining the current result from the input panel.');
+  inputEditor.focus();
 }
 
 function openFilePicker() {
@@ -276,13 +297,16 @@ async function importFile(file) {
 
   const text = await file.text();
   const inferredMode = inferModeFromFile(file.name, text) || state.mode;
+
   if (inferredMode !== state.mode) {
     setMode(inferredMode, false);
   }
+
   inputEditor.value = text;
+  saveDraft(state.mode, text);
   setOutput('', state.lastTransform);
-  clearMessages();
-  setStatus(`Imported ${file.name}.`, true);
+  updateInputMeta();
+  setStatus(`Imported ${file.name}.`, 'success', `Loaded into ${state.mode.toUpperCase()} mode.`);
 }
 
 function handleAction(action) {
@@ -311,6 +335,11 @@ function handleAction(action) {
     return;
   }
 
+  if (action === 'reuse') {
+    reuseOutputAsInput();
+    return;
+  }
+
   openFilePicker();
 }
 
@@ -335,6 +364,39 @@ fileInput.addEventListener('change', async (event) => {
   const [file] = event.target.files;
   await importFile(file);
   fileInput.value = '';
+});
+
+inputEditor.addEventListener('input', () => {
+  saveDraft(state.mode, inputEditor.value);
+  if (state.output) {
+    setOutput('', state.lastTransform);
+  }
+  updateInputMeta();
+});
+
+inputEditor.addEventListener('paste', (event) => {
+  const pastedText = event.clipboardData?.getData('text');
+
+  if (!pastedText) {
+    return;
+  }
+
+  const inferredMode = inferModeFromFile(`clipboard.${state.mode}`, pastedText);
+  if (inferredMode && inferredMode !== state.mode) {
+    event.preventDefault();
+    setMode(inferredMode, false);
+
+    const { selectionStart, selectionEnd, value } = inputEditor;
+    inputEditor.value = `${value.slice(0, selectionStart)}${pastedText}${value.slice(selectionEnd)}`;
+    inputEditor.selectionStart = inputEditor.selectionEnd = selectionStart + pastedText.length;
+    saveDraft(state.mode, inputEditor.value);
+    updateInputMeta();
+    setStatus(
+      `Pasted into ${state.mode.toUpperCase()} mode.`,
+      'success',
+      `Detected ${state.mode.toUpperCase()} from pasted content.`
+    );
+  }
 });
 
 ['dragenter', 'dragover'].forEach((eventName) => {
@@ -379,5 +441,10 @@ window.addEventListener('keydown', (event) => {
   }
 });
 
-setMode(state.mode);
+inputEditor.value = state.drafts[state.mode] || '';
+updatePlaceholders();
+updateInputMeta();
+updateOutputMeta();
+setMode(state.mode, false);
+clearMessages();
 syncActionAvailability();
