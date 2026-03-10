@@ -3,9 +3,11 @@ import { formatInput, getDownloadName, inferModeFromFile, samples } from './form
 
 const MODE_STORAGE_KEY = 'format-foundry:last-mode';
 const DRAFT_STORAGE_PREFIX = 'format-foundry:draft:';
+const THEME_STORAGE_KEY = 'format-foundry:theme';
 
 const state = {
   mode: localStorage.getItem(MODE_STORAGE_KEY) || 'json',
+  theme: localStorage.getItem(THEME_STORAGE_KEY) || 'dark',
   drafts: {
     json: localStorage.getItem(`${DRAFT_STORAGE_PREFIX}json`) || '',
     xml: localStorage.getItem(`${DRAFT_STORAGE_PREFIX}xml`) || '',
@@ -23,6 +25,9 @@ document.querySelector('#app').innerHTML = `
       </div>
 
       <div class="topbar-controls">
+        <button class="theme-toggle" type="button" id="themeToggle" aria-pressed="false">
+          <span class="theme-toggle-label">Light mode</span>
+        </button>
         <div class="tabs" role="tablist" aria-label="Formatter mode">
           <button class="tab-button" type="button" role="tab" data-mode="json" id="tab-json">JSON</button>
           <button class="tab-button" type="button" role="tab" data-mode="xml" id="tab-xml">XML</button>
@@ -115,6 +120,24 @@ const inputStats = document.querySelector('#inputStats');
 const outputStats = document.querySelector('#outputStats');
 const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
 const actionButtons = Array.from(document.querySelectorAll('.action-button'));
+const themeToggle = document.querySelector('#themeToggle');
+const themeToggleLabel = themeToggle.querySelector('.theme-toggle-label');
+
+function applyTheme(theme) {
+  state.theme = theme;
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.style.colorScheme = theme;
+  localStorage.setItem(THEME_STORAGE_KEY, theme);
+
+  const isDark = theme === 'dark';
+  themeToggle.setAttribute('aria-pressed', String(!isDark));
+  themeToggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+  themeToggleLabel.textContent = isDark ? 'Light mode' : 'Dark mode';
+}
+
+function toggleTheme() {
+  applyTheme(state.theme === 'dark' ? 'light' : 'dark');
+}
 
 function saveDraft(mode, value) {
   state.drafts[mode] = value;
@@ -360,6 +383,8 @@ actionButtons.forEach((button) => {
   button.addEventListener('click', () => handleAction(button.dataset.action));
 });
 
+themeToggle.addEventListener('click', toggleTheme);
+
 fileInput.addEventListener('change', async (event) => {
   const [file] = event.target.files;
   await importFile(file);
@@ -442,6 +467,7 @@ window.addEventListener('keydown', (event) => {
 });
 
 inputEditor.value = state.drafts[state.mode] || '';
+applyTheme(state.theme);
 updatePlaceholders();
 updateInputMeta();
 updateOutputMeta();
