@@ -11,6 +11,11 @@
   --muted: #9f9f9f;
   --accent: #03dac6;
   --accent-strong: #89f5e8;
+  --primary-button-bg: #e1e1e1;
+  --primary-button-border: #e1e1e1;
+  --primary-button-text: #151515;
+  --primary-button-hover-bg: #f3f3f3;
+  --primary-button-hover-border: #f3f3f3;
   --success: #4dd4a8;
   --error: #ff8a7a;
   --border: #343434;
@@ -34,6 +39,11 @@
   --muted: #6b665f;
   --accent: #0f766e;
   --accent-strong: #115e59;
+  --primary-button-bg: #1c1917;
+  --primary-button-border: #1c1917;
+  --primary-button-text: #fafaf9;
+  --primary-button-hover-bg: #292524;
+  --primary-button-hover-border: #292524;
   --success: #15803d;
   --error: #b91c1c;
   --border: #d6d3d1;
@@ -218,15 +228,15 @@ button:disabled {
 }
 
 .action-button-primary {
-  background: var(--text);
-  border-color: var(--text);
-  color: #151515;
+  background: var(--primary-button-bg);
+  border-color: var(--primary-button-border);
+  color: var(--primary-button-text);
 }
 
 .action-button-primary:hover:not(:disabled) {
-  background: #f3f3f3;
-  border-color: #f3f3f3;
-  color: #151515;
+  background: var(--primary-button-hover-bg);
+  border-color: var(--primary-button-hover-border);
+  color: var(--primary-button-text);
 }
 
 .status-bar {
